@@ -1,0 +1,65 @@
+name: Publish Satoshi to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # GitHub schedules are best effort; timestamps remain visible in the UI.
+    - cron: '7,17,27,37,47,57 * * * *'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Use Node 24
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - name: Determine report day
+        id: clock
+        run: echo "day=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+      - name: Restore daily reports and previous news
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            .cache/daily
+            .cache/pages
+          key: satoshi-reports-v1-${{ steps.clock.outputs.day }}
+          restore-keys: satoshi-reports-v1-
+      - name: Install dependencies
+        run: npm ci --include=dev --no-fund --no-audit
+      - name: Validate calculations and adapters
+        run: npm test
+      - name: Fetch news and create daily archive
+        run: npm run snapshot:pages
+      - name: Build static website
+        env:
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}/
+        run: npm run build:pages
+      - name: Upload website
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: dist-pages
+      - name: Publish website
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5

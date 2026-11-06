@@ -1,0 +1,8 @@
+{
+  "frameAncestors": [
+    "https://chatgpt.com",
+    "https://chat.openai.com",
+    "https://*.chatgpt.com",
+    "https://*.oaiusercontent.com"
+  ]
+}
